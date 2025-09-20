@@ -13,3 +13,4 @@ catboost_info/
 
 # Ignore data experiments
 *.ipynb
+".streamlit/secrets.toml" 
