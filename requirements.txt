@@ -1,0 +1,26 @@
+# Core
+streamlit
+scikit-learn
+pandas
+numpy
+joblib
+
+# Explainability & Visualization
+shap
+matplotlib
+seaborn
+
+# Model Handling
+xgboost
+lightgbm
+catboost
+
+# Data Utilities
+openpyxl   # for Excel file support
+pyyaml
+
+# Hugging Face API
+requests
+
+# Optional: for JSON data handling
+orjson

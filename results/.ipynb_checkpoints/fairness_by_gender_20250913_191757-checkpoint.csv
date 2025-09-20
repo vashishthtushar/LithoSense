@@ -1,0 +1,5 @@
+Group,Samples,AUROC,F1,Brier
+Male,27,0.926,0.789,0.175
+Female,21,0.962,0.8,0.094
+Younger (≤ median age),24,0.893,0.727,0.161
+Older (> median age),24,0.943,0.839,0.117

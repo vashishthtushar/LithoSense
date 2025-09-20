@@ -1,0 +1,15 @@
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Ignore Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Ignore local secrets
+.streamlit/secrets.toml
+
+# Ignore catboost logs
+catboost_info/
+
+# Ignore data experiments
+*.ipynb

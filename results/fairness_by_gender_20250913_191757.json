@@ -1,0 +1,1 @@
+[{"Group":"Male","Samples":27,"AUROC":0.926,"F1":0.789,"Brier":0.175},{"Group":"Female","Samples":21,"AUROC":0.962,"F1":0.8,"Brier":0.094},{"Group":"Younger (\u2264 median age)","Samples":24,"AUROC":0.893,"F1":0.727,"Brier":0.161},{"Group":"Older (> median age)","Samples":24,"AUROC":0.943,"F1":0.839,"Brier":0.117}]
