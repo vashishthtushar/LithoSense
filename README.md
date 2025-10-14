@@ -2,7 +2,7 @@
 
 ### Deployed Link - https://lithosense-6bjk38thknmq92cpxptwyc.streamlit.app/
 
-**Author:** Tushar  
+**Author:** Tushar Vashishth
 **Status:** Prototype / Demo-ready (Streamlit) — includes prediction, explainability (SHAP), fairness checks, and LLM-based clinical summaries (Hugging Face / fallback).
 
 > ⚠️ **Medical disclaimer:** This project is an academic prototype. It must **not** be used as a substitute for professional medical diagnosis or treatment. All outputs should be reviewed by qualified clinicians before any patient-facing use.
