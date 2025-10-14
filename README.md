@@ -1,5 +1,7 @@
 # LithoSense — Clinical Gallstone Risk Screening (Interactive + Explainable)
 
+# Deployed Link - https://lithosense-6bjk38thknmq92cpxptwyc.streamlit.app/
+
 **Author:** Tushar  
 **Status:** Prototype / Demo-ready (Streamlit) — includes prediction, explainability (SHAP), fairness checks, and LLM-based clinical summaries (Hugging Face / fallback).
 
