@@ -6,6 +6,8 @@ from src.utils import (
     run_batch_predictions,
     compute_local_shap_plot,
     get_local_shap_contributions,
+    query_llm_summary,
+    format_summary_text,
 )
 
 def app(artifacts):
@@ -51,6 +53,9 @@ def app(artifacts):
                 file_name="batch_predictions.csv",
                 mime="text/csv",
             )
+
+            
+    
 
             # --- Local SHAP for a selected patient ---
             st.markdown("## 🧑‍⚕️ Local SHAP Explanations (for CSV patients)")
@@ -124,7 +129,7 @@ def app(artifacts):
                         st.markdown("**Local SHAP Contributions (Top Features)**")
                         st.dataframe(shap_df)
 
-                        # Download SHAP CSV
+                    # Download SHAP CSV
                         shap_csv = shap_df.to_csv(index=False).encode("utf-8")
                         st.download_button(
                             "⬇️ Download Local SHAP Contributions (CSV)",
@@ -132,6 +137,43 @@ def app(artifacts):
                             file_name=f"local_shap_row{row_index}.csv",
                             mime="text/csv",
                         )
+
+                   # ===============================
+                    # 🧠 AI-Generated Clinical Summary
+                    # ===============================
+                    
+                    st.divider()
+                    st.markdown("## 🤖 AI-Generated Patient Summary")
+                    
+                    if st.button("🧠 Generate AI Summary for this Patient"):
+                        with st.spinner("Generating clinical insights..."):
+                            try:
+                                st.session_state["ai_summary"] = query_llm_summary(
+                                    risk_band=band,
+                                    probability=prob,
+                                    shap_df=shap_df,
+                                )
+                            except Exception as e:
+                                st.error(f"AI summary generation failed: {e}")
+                    
+                    # Display summary if available
+                    if "ai_summary" in st.session_state:
+                        st.markdown(format_summary_text(st.session_state["ai_summary"]))
+                        st.caption(
+                            "⚠️ AI-generated insights are for clinical decision support only "
+                            "and should not replace professional medical judgment."
+                        )
+
+
+    
+                        # # Download SHAP CSV
+                        # shap_csv = shap_df.to_csv(index=False).encode("utf-8")
+                        # st.download_button(
+                        #     "⬇️ Download Local SHAP Contributions (CSV)",
+                        #     data=shap_csv,
+                        #     file_name=f"local_shap_row{row_index}.csv",
+                        #     mime="text/csv",
+                        # )
                 except Exception as e:
                     st.error(f"Local SHAP failed: {e}")
             else:
