@@ -2,6 +2,12 @@
 import os
 import streamlit as st
 import pandas as pd
+# from src.utils import (
+#     query_llm_explainability_summary,
+#     format_summary_text,
+# )
+
+
 
 def app(artifacts):
     st.title("🌍 Explainability")
@@ -43,3 +49,33 @@ def app(artifacts):
             st.error(f"Could not load SHAP summary CSV: {e}")
     else:
         st.info("SHAP summary CSV not found in models/")
+
+
+
+
+# # ===============================
+# # 🧠 AI Explanation of SHAP Results
+# # ===============================
+
+# st.divider()
+# st.markdown("## 🤖 AI Explanation of Model Explainability")
+
+# if st.button("🧠 Generate AI Explanation of SHAP Results"):
+#     with st.spinner("Analyzing global SHAP patterns..."):
+#         try:
+#             st.session_state["ai_explainability_summary"] = (
+#                 query_llm_explainability_summary(df)
+#             )
+#         except Exception as e:
+#             st.error(f"AI explanation failed: {e}")
+
+# # Display explanation if available
+# if "ai_explainability_summary" in st.session_state:
+#     st.markdown(
+#         format_summary_text(st.session_state["ai_explainability_summary"])
+#     )
+#     st.caption(
+#         "⚠️ AI-generated explanations are intended to support understanding of "
+#         "model behavior and should not replace expert interpretation."
+#     )
+
