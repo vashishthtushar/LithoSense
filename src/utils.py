@@ -533,144 +533,422 @@ import os
 import requests
 import pandas as pd
 
-# Primary and fallback models
-HF_PRIMARY_URL = "https://api-inference.huggingface.co/models/Falconsai/medical_summarization"
-HF_FALLBACK_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+# ==============================
+# Hugging Face Chat Configuration
+# ==============================
+
+HF_CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
+HF_MODEL = "meta-llama/Llama-3.2-1B-Instruct"
+
+
+# ==============================
+# Token Loader
+# ==============================
 
 def get_hf_token(st_module=None):
-    """Load Hugging Face API token from Streamlit secrets or env variable."""
+    """
+    Load Hugging Face API token from Streamlit secrets or environment variable.
+    """
     try:
-        if st_module is not None and hasattr(st_module, "secrets") and "HF_API_TOKEN" in st_module.secrets:
-            return st_module.secrets["HF_API_TOKEN"]
+        if st_module is not None and hasattr(st_module, "secrets"):
+            if "HF_API_TOKEN" in st_module.secrets:
+                return st_module.secrets["HF_API_TOKEN"]
     except Exception:
         pass
-    return os.environ.get("HF_API_TOKEN", None)
+
+    return os.environ.get("HF_API_TOKEN")
 
 
-def query_hf_model(prompt, api_url, token):
-    """Helper: send request to Hugging Face Inference API."""
-    headers = {"Authorization": f"Bearer {token}"}
-    payload = {"inputs": prompt, "parameters": {"max_new_tokens": 300}}
-    response = requests.post(api_url, headers=headers, json=payload)
+# ==============================
+# Hugging Face Chat Query
+# ==============================
+
+def query_hf_chat(prompt: str, token: str) -> str:
+    """
+    Send a chat-based request to Hugging Face Router API.
+    Uses instruction-tuned LLM (Meta-LLaMA).
+    """
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "model": HF_MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are a clinical decision support assistant for doctors."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "temperature": 0.2,
+        "max_tokens": 300,
+    }
+
+    response = requests.post(
+        HF_CHAT_URL,
+        headers=headers,
+        json=payload,
+        timeout=30
+    )
+
     response.raise_for_status()
     data = response.json()
 
-    # Handle different HF response formats
-    if isinstance(data, list) and "generated_text" in data[0]:
-        return data[0]["generated_text"].strip()
-    elif isinstance(data, list) and "summary_text" in data[0]:
-        return data[0]["summary_text"].strip()
-    elif isinstance(data, dict) and "summary_text" in data:
-        return data["summary_text"].strip()
-    else:
-        return f"⚠️ Unexpected HF response: {data}"
+    return data["choices"][0]["message"]["content"].strip()
 
 
-def query_llm_summary(risk_band, probability, shap_df=None, top_n=6):
+# ==============================
+# Clinical Summary Generator
+# ==============================
+
+def query_llm_summary(
+    risk_band: str,
+    probability: float,
+    shap_df: pd.DataFrame | None = None,
+    top_n: int = 6
+) -> str:
     """
-    Query Hugging Face (medical_summarization → fallback to BART).
-    Generates a clinician-friendly summary.
+    Generate clinician-friendly summary using SHAP results + prediction output.
     """
+
     token = get_hf_token()
     if not token:
         return "⚠️ Hugging Face API token not found. Please set HF_API_TOKEN."
 
-    # 🔹 Build features string
-    prob_percent = f"{probability*100:.1f}%" if probability is not None else "N/A"
+    # ------------------------------
+    # Format probability
+    # ------------------------------
+    prob_percent = (
+        f"{probability * 100:.1f}%" if probability is not None else "N/A"
+    )
+
+    # ------------------------------
+    # Build SHAP feature text
+    # ------------------------------
+    # features_text = ""
+    # if shap_df is not None and not shap_df.empty:
+    #     top = shap_df.sort_values(
+    #         by="mean_abs_shap", ascending=False
+    #     ).head(top_n)
+
+    #     lines = []
+    #     for _, r in top.iterrows():
+    #         feature = r.get("feature", "")
+    #         signed = r.get("signed_shap", 0)
+    #         direction = "increases" if signed > 0 else "decreases"
+    #         lines.append(f"- {feature}: tends to {direction} risk")
+
+    #     features_text = "\n".join(lines)
+
+    # ------------------------------
+# Build SHAP feature text (GLOBAL + LOCAL safe)
+# ------------------------------
     features_text = ""
+    
     if shap_df is not None and not shap_df.empty:
-        top = shap_df.sort_values(by="mean_abs_shap", ascending=False).head(top_n)
-        lines = []
-        for _, r in top.iterrows():
-            feat = r.get("feature", "")
-            impact = r.get("mean_abs_shap", 0)
-            signed = r.get("signed_shap", 0)
-            direction = "increases" if signed > 0 else "decreases"
-            lines.append(f"- {feat}: impact {impact:.3f}, tends to {direction} risk")
-        features_text = "\n".join(lines)
+        df = shap_df.copy()
+        df.columns = [c.lower() for c in df.columns]
+    
+        # Detect magnitude column
+        if "mean_abs_shap" in df.columns:
+            magnitude_col = "mean_abs_shap"
+            signed_col = "signed_shap"
+        elif "abs" in df.columns:
+            magnitude_col = "abs"
+            signed_col = "signed"
+        else:
+            magnitude_col = None
+            signed_col = None
+    
+        if magnitude_col:
+            top = df.sort_values(by=magnitude_col, ascending=False).head(top_n)
+    
+            lines = []
+            for _, r in top.iterrows():
+                feature = r.get("feature", "Unknown feature")
+                signed = r.get(signed_col, 0)
+                direction = "increases" if signed > 0 else "decreases"
+                lines.append(f"- {feature}: tends to {direction} risk")
+    
+            features_text = "\n".join(lines)
 
-    # 🔹 Clinical prompt
+
+    if not features_text:
+        features_text = "- No dominant clinical features identified."
+
+    # ------------------------------
+    # Clinical Prompt (Instruction)
+    # ------------------------------
     prompt = f"""
-    You are a clinical assistant AI.
-    Based on the prediction results:
+You are a clinical decision support assistant.
 
-    - Risk Band: {risk_band}
-    - Predicted Probability: {prob_percent}
+Fill in ALL sections below.
+Do NOT remove section headers.
+If unsure, write "Not enough evidence to conclude."
 
-    Top contributing features:
-    {features_text if features_text else "No key features identified."}
+Risk Band: {risk_band}
+Predicted Probability: {prob_percent}
 
-    Write a short, clear clinical summary (2-3 sentences) for doctors.
-    Include sections:
-    💊 Medical Insight  
-    🥦 Diet Tips  
-    🏃 Lifestyle Suggestions
-    """
+Key contributing clinical factors:
+{features_text}
 
-    # 🔹 Try primary model first
+--- OUTPUT TEMPLATE (FILL ALL FIELDS) ---
+
+Medical Insight:
+[WRITE ONE CLINICAL SENTENCE HERE]
+
+Diet Recommendations:
+[WRITE ONE ACTIONABLE DIET RECOMMENDATION HERE]
+
+Lifestyle Recommendations:
+[WRITE ONE ACTIONABLE LIFESTYLE RECOMMENDATION HERE]
+"""
+
+
+    # ------------------------------
+    # Call Hugging Face Chat Model
+    # ------------------------------
     try:
-        return query_hf_model(prompt, HF_PRIMARY_URL, token)
-    except Exception as e1:
-        print(f"⚠️ Primary model failed: {e1}, falling back to BART...")
-        try:
-            return query_hf_model(prompt, HF_FALLBACK_URL, token)
-        except Exception as e2:
-            return f"⚠️ Hugging Face API error (both models failed): {e2}"
+        return query_hf_chat(prompt, token)
+    except Exception as e:
+        return f"⚠️ Hugging Face API error: {e}"
 
+
+# ==============================
+# Output Formatter (UI Safety)
+# ==============================
 
 def format_summary_text(summary_text: str) -> str:
     """
-    Format the raw model output into structured markdown sections.
-    Ensures headings for Medical, Diet, and Lifestyle.
+    Ensures structured markdown output for UI rendering.
     """
+
     if not summary_text or summary_text.startswith("⚠️"):
         return summary_text
 
-    # Normalize text
     text = summary_text.strip()
 
-    # Try to detect existing sections
-    has_medical = "medical" in text.lower()
-    has_diet = "diet" in text.lower()
-    has_lifestyle = "lifestyle" in text.lower()
+    sections = {
+        "medical": "💊 **Medical Insight**",
+        "diet": "🥦 **Diet Recommendations**",
+        "lifestyle": "🏃 **Lifestyle Recommendations**"
+    }
 
     formatted = []
 
-    # Force structure if missing
-    if has_medical:
-        formatted.append("💊 **Medical Insight**\n" + extract_section(text, "medical"))
-    else:
-        formatted.append("💊 **Medical Insight**\n" + text.split(".")[0] + ".")
-
-    if has_diet:
-        formatted.append("🥦 **Diet Tips**\n" + extract_section(text, "diet"))
-    else:
-        formatted.append("🥦 **Diet Tips**\n- Eat a balanced diet with fruits, vegetables, and whole grains.\n- Limit fried and processed foods.")
-
-    if has_lifestyle:
-        formatted.append("🏃 **Lifestyle Suggestions**\n" + extract_section(text, "lifestyle"))
-    else:
-        formatted.append("🏃 **Lifestyle Suggestions**\n- Stay active with regular walking or exercise.\n- Maintain healthy body weight.")
+    for key, title in sections.items():
+        content = extract_section(text, key)
+        if content:
+            formatted.append(f"{title}\n{content}")
+        else:
+            formatted.append(f"{title}\nNo specific guidance provided.")
 
     return "\n\n".join(formatted)
 
 
 def extract_section(text: str, keyword: str) -> str:
     """
-    Extracts a section of text around a keyword (e.g., medical/diet/lifestyle).
-    If not found cleanly, returns a placeholder.
+    Extract section text by keyword.
     """
+
     lines = text.split("\n")
-    section_lines = []
     capture = False
+    collected = []
+
     for line in lines:
-        if keyword.lower() in line.lower():
+        lower = line.lower()
+
+        if keyword in lower:
             capture = True
-        elif capture and (any(k in line.lower() for k in ["medical", "diet", "lifestyle"])):
+            continue
+
+        if capture and any(k in lower for k in ["medical", "diet", "lifestyle"]):
             break
+
         if capture:
-            section_lines.append(line)
-    return "\n".join(section_lines).strip() if section_lines else "No specific advice provided."
+            collected.append(line)
+
+    return "\n".join(collected).strip()
+
+
+
+
+
+
+
+
+# import os
+# import requests
+# import pandas as pd
+
+# # Primary and fallback models
+# HF_PRIMARY_URL = "https://router.huggingface.co/hf-inference/models/meta-llama/Llama-3.2-1B-Instruct"
+# HF_FALLBACK_URL = "https://router.huggingface.co/hf-inference/models/Falconsai/medical_summarization"
+
+
+
+# def get_hf_token(st_module=None):
+#     """Load Hugging Face API token from Streamlit secrets or env variable."""
+#     try:
+#         if st_module is not None and hasattr(st_module, "secrets") and "HF_API_TOKEN" in st_module.secrets:
+#             return st_module.secrets["HF_API_TOKEN"]
+#     except Exception:
+#         pass
+#     return os.environ.get("HF_API_TOKEN", None)
+
+
+# def query_hf_model(prompt, api_url, token):
+#     """Helper: send request to Hugging Face Inference API."""
+#     headers = {"Authorization": f"Bearer {token}"}
+#     payload = {"inputs": prompt, "parameters":  {
+#         "max_length": 120,
+#         "min_length": 50,
+#         "do_sample": False,
+#         "temperature": 0.3,
+#         "return_full_text": False
+#     }}
+#     response = requests.post(api_url, headers=headers, json=payload)
+#     response.raise_for_status()
+#     data = response.json()
+
+#     # Handle different HF response formats
+#     if isinstance(data, list) and "generated_text" in data[0]:
+#         return data[0]["generated_text"].strip()
+#     elif isinstance(data, list) and "summary_text" in data[0]:
+#         return data[0]["summary_text"].strip()
+#     elif isinstance(data, dict) and "summary_text" in data:
+#         return data["summary_text"].strip()
+#     else:
+#         return f"⚠️ Unexpected HF response: {data}"
+
+
+# def query_llm_summary(risk_band, probability, shap_df=None, top_n=6):
+#     """
+#     Query Hugging Face (medical_summarization → fallback to BART).
+#     Generates a clinician-friendly summary.
+#     """
+#     token = get_hf_token()
+#     if not token:
+#         return "⚠️ Hugging Face API token not found. Please set HF_API_TOKEN."
+
+#     # 🔹 Build features string
+#     prob_percent = f"{probability*100:.1f}%" if probability is not None else "N/A"
+#     features_text = ""
+#     if shap_df is not None and not shap_df.empty:
+#         top = shap_df.sort_values(by="mean_abs_shap", ascending=False).head(top_n)
+#         lines = []
+#         for _, r in top.iterrows():
+#             feat = r.get("feature", "")
+#             impact = r.get("mean_abs_shap", 0)
+#             signed = r.get("signed_shap", 0)
+#             direction = "increases" if signed > 0 else "decreases"
+#             lines.append(f"- {feat}: impact {impact:.3f}, tends to {direction} risk")
+#         features_text = "\n".join(lines)
+
+#     # 🔹 Clinical prompt
+#     prompt = f"""
+#        You are a clinical decision support assistant for doctors.
+        
+#         Task:
+#         Generate a concise clinical summary based on the information below.
+#         Do NOT repeat the input.
+#         Do NOT explain the model.
+#         Write only the final answer.
+        
+#         Patient Risk Information:
+#         - Risk Category: {risk_band}
+#         - Predicted Risk Probability: {prob_percent}
+        
+#         Key Contributing Clinical Factors:
+#         {features_text if features_text else "- No dominant clinical features identified."}
+        
+#         Output Requirements:
+#         - Length: 2–3 short sentences
+#         - Tone: professional, clinical, evidence-based
+#         - Audience: medical professionals
+        
+#         Format the output exactly as follows:
+        
+#         Medical Insight:
+#         <one sentence clinical interpretation>
+        
+#         Diet Recommendations:
+#         <one short actionable recommendation>
+        
+#         Lifestyle Recommendations:
+#         <one short actionable recommendation>
+#     """
+
+#     # 🔹 Try primary model first
+#     try:
+#         return query_hf_model(prompt, HF_PRIMARY_URL, token)
+#     except Exception as e1:
+#         print(f"⚠️ Primary model failed: {e1}, falling back to BART...")
+#         try:
+#             return query_hf_model(prompt, HF_FALLBACK_URL, token)
+#         except Exception as e2:
+#             return f"⚠️ Hugging Face API error (both models failed): {e2}"
+
+
+# def format_summary_text(summary_text: str) -> str:
+#     """
+#     Format the raw model output into structured markdown sections.
+#     Ensures headings for Medical, Diet, and Lifestyle.
+#     """
+#     if not summary_text or summary_text.startswith("⚠️"):
+#         return summary_text
+
+#     # Normalize text
+#     text = summary_text.strip()
+
+#     # Try to detect existing sections
+#     has_medical = "medical" in text.lower()
+#     has_diet = "diet" in text.lower()
+#     has_lifestyle = "lifestyle" in text.lower()
+
+#     formatted = []
+
+#     # Force structure if missing
+#     if has_medical:
+#         formatted.append("💊 **Medical Insight**\n" + extract_section(text, "medical"))
+#     else:
+#         formatted.append("💊 **Medical Insight**\n" + text.split(".")[0] + ".")
+
+#     if has_diet:
+#         formatted.append("🥦 **Diet Tips**\n" + extract_section(text, "diet"))
+#     else:
+#         formatted.append("🥦 **Diet Tips**\n- Eat a balanced diet with fruits, vegetables, and whole grains.\n- Limit fried and processed foods.")
+
+#     if has_lifestyle:
+#         formatted.append("🏃 **Lifestyle Suggestions**\n" + extract_section(text, "lifestyle"))
+#     else:
+#         formatted.append("🏃 **Lifestyle Suggestions**\n- Stay active with regular walking or exercise.\n- Maintain healthy body weight.")
+
+#     return "\n\n".join(formatted)
+
+
+# def extract_section(text: str, keyword: str) -> str:
+#     """
+#     Extracts a section of text around a keyword (e.g., medical/diet/lifestyle).
+#     If not found cleanly, returns a placeholder.
+#     """
+#     lines = text.split("\n")
+#     section_lines = []
+#     capture = False
+#     for line in lines:
+#         if keyword.lower() in line.lower():
+#             capture = True
+#         elif capture and (any(k in line.lower() for k in ["medical", "diet", "lifestyle"])):
+#             break
+#         if capture:
+#             section_lines.append(line)
+#     return "\n".join(section_lines).strip() if section_lines else "No specific advice provided."
 
 def top_features_explanation(shap_df, top_n=5):
     """
@@ -687,3 +965,57 @@ def top_features_explanation(shap_df, top_n=5):
         direction = "increases" if signed > 0 else "reduces"
         lines.append(f"- **{feat}**: tends to {direction} gallstone risk.")
     return "\n".join(lines)
+
+
+
+
+# def query_llm_explainability_summary(shap_df, top_n=8):
+#     """
+#     Generate an AI explanation of global SHAP results
+#     (model-level explainability, not patient-level).
+#     """
+#     token = get_hf_token()
+#     if not token:
+#         return "⚠️ Hugging Face API token not found."
+
+#     # Prepare top features text
+#     df = shap_df.copy()
+#     df.columns = [c.lower() for c in df.columns]
+
+#     if "mean_abs_shap" not in df.columns:
+#         return "⚠️ SHAP summary file does not contain expected columns."
+
+#     top = df.sort_values("mean_abs_shap", ascending=False).head(top_n)
+
+#     lines = []
+#     for _, r in top.iterrows():
+#         feature = r.get("feature", "Unknown feature")
+#         impact = r.get("mean_abs_shap", 0)
+#         lines.append(f"- {feature}: strong overall influence on model predictions")
+
+#     features_text = "\n".join(lines)
+
+#     prompt = f"""
+# You are an AI assistant explaining a machine learning model to clinicians.
+
+# The following are GLOBAL SHAP feature importance results
+# (aggregated across the full dataset).
+
+# Top influential features:
+# {features_text}
+
+# Explain the model behavior in clear clinical language.
+
+# Write a concise explanation with the following sections:
+
+# Overall Model Behavior:
+# Key Influential Features:
+# Clinical Interpretation:
+# Caution & Limitations:
+
+# Do NOT mention individual patients.
+# Do NOT give treatment advice.
+# """
+
+#     return query_hf_chat(prompt, token)
+
