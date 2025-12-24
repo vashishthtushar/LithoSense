@@ -23,6 +23,8 @@ SHAP_GLOBAL_PLOT = os.path.join(MODELS_DIR, "shap_global_plot.png")
 SHAP_GLOBAL_BEESWARM = os.path.join(MODELS_DIR, "shap_global_beeswarm.png")
 SHAP_GLOBAL_FULL = os.path.join(MODELS_DIR, "shap_global_full.npz")
 
+
+
 # -------------------------
 # Artifact loading helpers
 # -------------------------
@@ -182,6 +184,23 @@ def risk_band_from_prob(p: float, low_thresh=0.4, high_thresh=0.7):
         return "Moderate"
     return "Low"
 
+def _force_numeric_df(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Force all values to numeric.
+    Converts strings like '[4.93E-1]' → 0.493
+    """
+    df = df.copy()
+
+    for col in df.columns:
+        df[col] = (
+            df[col]
+            .astype(str)
+            .str.replace(r"[\[\]]", "", regex=True)
+            .astype(float)
+        )
+
+    return df
+
 # -------------------------
 # SHAP helpers (local & aggregation)
 # --- paste/replace these three functions in src/utils.py ---
@@ -298,6 +317,7 @@ def compute_local_shap_plot(raw_pipeline, X_row_df, original_features=None, top_
 
     # prepare processed X and names
     if pre is not None:
+        X_row_df = _force_numeric_df(X_row_df)
         X_proc = pre.transform(X_row_df)
         if hasattr(X_proc, "toarray"):
             X_proc = X_proc.toarray()
@@ -312,8 +332,6 @@ def compute_local_shap_plot(raw_pipeline, X_row_df, original_features=None, top_
     else:
         X_proc = X_row_df.copy()
         proc_feature_names = list(X_proc.columns)
-
-    assert X.dtypes.apply(lambda x: x.kind).eq("f").all(), "X contains non-float values"
 
     ### compute shap values
     # try:
@@ -402,6 +420,7 @@ def get_local_shap_contributions(raw_pipeline, X_row_df, original_features=None,
 
     # prepare processed X and feature names
     if pre is not None:
+        X_row_df = _force_numeric_df(X_row_df)
         X_proc = pre.transform(X_row_df)
         if hasattr(X_proc, "toarray"):
             X_proc = X_proc.toarray()
