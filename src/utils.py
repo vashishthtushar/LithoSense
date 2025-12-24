@@ -36,6 +36,23 @@ def find_latest_metadata(models_dir=MODELS_DIR):
     files.sort(key=os.path.getmtime, reverse=True)
     return files[0]
 
+def _force_numeric_df(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Force all values to numeric.
+    Converts strings like '[4.93E-1]' → 0.493
+    """
+    df = df.copy()
+
+    for col in df.columns:
+        df[col] = (
+            df[col]
+            .astype(str)
+            .str.replace(r"[\[\]]", "", regex=True)
+            .astype(float)
+        )
+
+    return df
+
 def load_artifacts(models_dir=MODELS_DIR):
     """
     Load metadata JSON (latest) and pipelines if present.
@@ -184,22 +201,7 @@ def risk_band_from_prob(p: float, low_thresh=0.4, high_thresh=0.7):
         return "Moderate"
     return "Low"
 
-def _force_numeric_df(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Force all values to numeric.
-    Converts strings like '[4.93E-1]' → 0.493
-    """
-    df = df.copy()
 
-    for col in df.columns:
-        df[col] = (
-            df[col]
-            .astype(str)
-            .str.replace(r"[\[\]]", "", regex=True)
-            .astype(float)
-        )
-
-    return df
 
 # -------------------------
 # SHAP helpers (local & aggregation)
