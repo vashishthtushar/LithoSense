@@ -323,6 +323,8 @@ def compute_local_shap_plot(raw_pipeline, X_row_df, original_features=None, top_
         X_proc = pre.transform(X_row_df)
         if hasattr(X_proc, "toarray"):
             X_proc = X_proc.toarray()
+        X_proc = np.asarray(X_proc, dtype=float)  # 🔥 REQUIRED
+
         proc_feature_names = None
         try:
             # sklearn >= 1.0
@@ -332,8 +334,9 @@ def compute_local_shap_plot(raw_pipeline, X_row_df, original_features=None, top_
             if hasattr(X_proc, "shape"):
                 proc_feature_names = [f"f{i}" for i in range(X_proc.shape[1])]
     else:
-        X_proc = X_row_df.copy()
-        proc_feature_names = list(X_proc.columns)
+        X_row_df = _force_numeric_df(X_row_df)      # 🔥 MISSING
+        X_proc = X_row_df.values.astype(float)      # 🔥 REQUIRED
+        proc_feature_names = list(X_row_df.columns)
 
     ### compute shap values
     # try:
@@ -426,15 +429,18 @@ def get_local_shap_contributions(raw_pipeline, X_row_df, original_features=None,
         X_proc = pre.transform(X_row_df)
         if hasattr(X_proc, "toarray"):
             X_proc = X_proc.toarray()
+        X_proc = np.asarray(X_proc, dtype=float)  # 🔥 REQUIRED
+
         proc_feature_names = None
         try:
             proc_feature_names = list(pre.get_feature_names_out(X_row_df.columns))
         except Exception:
             if hasattr(X_proc, "shape"):
                 proc_feature_names = [f"f{i}" for i in range(X_proc.shape[1])]
-    else:
-        X_proc = X_row_df.copy()
-        proc_feature_names = list(X_proc.columns)
+   else:
+        X_row_df = _force_numeric_df(X_row_df)      # 🔥 MISSING
+        X_proc = X_row_df.values.astype(float)      # 🔥 REQUIRED
+        proc_feature_names = list(X_row_df.columns)
 
     # compute shap values
     # try:
