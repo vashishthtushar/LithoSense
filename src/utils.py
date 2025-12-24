@@ -23,8 +23,6 @@ SHAP_GLOBAL_PLOT = os.path.join(MODELS_DIR, "shap_global_plot.png")
 SHAP_GLOBAL_BEESWARM = os.path.join(MODELS_DIR, "shap_global_beeswarm.png")
 SHAP_GLOBAL_FULL = os.path.join(MODELS_DIR, "shap_global_full.npz")
 
-
-
 # -------------------------
 # Artifact loading helpers
 # -------------------------
@@ -35,23 +33,6 @@ def find_latest_metadata(models_dir=MODELS_DIR):
         return None
     files.sort(key=os.path.getmtime, reverse=True)
     return files[0]
-
-def _force_numeric_df(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Force all values to numeric.
-    Converts strings like '[4.93E-1]' → 0.493
-    """
-    df = df.copy()
-
-    for col in df.columns:
-        df[col] = (
-            df[col]
-            .astype(str)
-            .str.replace(r"[\[\]]", "", regex=True)
-            .astype(float)
-        )
-
-    return df
 
 def load_artifacts(models_dir=MODELS_DIR):
     """
@@ -201,8 +182,6 @@ def risk_band_from_prob(p: float, low_thresh=0.4, high_thresh=0.7):
         return "Moderate"
     return "Low"
 
-
-
 # -------------------------
 # SHAP helpers (local & aggregation)
 # --- paste/replace these three functions in src/utils.py ---
@@ -319,12 +298,9 @@ def compute_local_shap_plot(raw_pipeline, X_row_df, original_features=None, top_
 
     # prepare processed X and names
     if pre is not None:
-        X_row_df = _force_numeric_df(X_row_df)
         X_proc = pre.transform(X_row_df)
         if hasattr(X_proc, "toarray"):
             X_proc = X_proc.toarray()
-        X_proc = np.asarray(X_proc, dtype=float)  # 🔥 REQUIRED
-
         proc_feature_names = None
         try:
             # sklearn >= 1.0
@@ -334,32 +310,18 @@ def compute_local_shap_plot(raw_pipeline, X_row_df, original_features=None, top_
             if hasattr(X_proc, "shape"):
                 proc_feature_names = [f"f{i}" for i in range(X_proc.shape[1])]
     else:
-        X_row_df = _force_numeric_df(X_row_df)      # 🔥 MISSING
-        X_proc = X_row_df.values.astype(float)      # 🔥 REQUIRED
-        proc_feature_names = list(X_row_df.columns)
+        X_proc = X_row_df.copy()
+        proc_feature_names = list(X_proc.columns)
 
-    ### compute shap values
-    # try:
-    #     try:
-    #         expl = shap.TreeExplainer(est)
-    #     except Exception:
-    #         expl = shap.Explainer(est, X_proc)
-    #     shap_vals = expl.shap_values(X_proc)
-    # except Exception as e:
-    #     raise RuntimeError(f"SHAP explainer failed: {e}")
-    # ✅ FIX: SHAP must use XGBoost Booster, not XGBClassifier
+    # compute shap values
     try:
-        if hasattr(est, "get_booster"):
-            booster = est.get_booster()
-        else:
-            raise RuntimeError("Estimator is not XGBoost-compatible")
-    
-        explainer = shap.TreeExplainer(booster)
-        shap_vals = explainer.shap_values(X_proc)
-    
+        try:
+            expl = shap.TreeExplainer(est)
+        except Exception:
+            expl = shap.Explainer(est, X_proc)
+        shap_vals = expl.shap_values(X_proc)
     except Exception as e:
         raise RuntimeError(f"SHAP explainer failed: {e}")
-
 
     if isinstance(shap_vals, list) and len(shap_vals) > 1:
         vals = np.array(shap_vals[1])
@@ -425,12 +387,9 @@ def get_local_shap_contributions(raw_pipeline, X_row_df, original_features=None,
 
     # prepare processed X and feature names
     if pre is not None:
-        X_row_df = _force_numeric_df(X_row_df)
         X_proc = pre.transform(X_row_df)
         if hasattr(X_proc, "toarray"):
             X_proc = X_proc.toarray()
-        X_proc = np.asarray(X_proc, dtype=float)  # 🔥 REQUIRED
-
         proc_feature_names = None
         try:
             proc_feature_names = list(pre.get_feature_names_out(X_row_df.columns))
@@ -438,33 +397,18 @@ def get_local_shap_contributions(raw_pipeline, X_row_df, original_features=None,
             if hasattr(X_proc, "shape"):
                 proc_feature_names = [f"f{i}" for i in range(X_proc.shape[1])]
     else:
-        X_row_df = _force_numeric_df(X_row_df)      # 🔥 MISSING
-        X_proc = X_row_df.values.astype(float)      # 🔥 REQUIRED
-        proc_feature_names = list(X_row_df.columns)
+        X_proc = X_row_df.copy()
+        proc_feature_names = list(X_proc.columns)
 
     # compute shap values
-    # try:
-    #     try:
-    #         expl = shap.TreeExplainer(est)
-    #     except Exception:
-    #         expl = shap.Explainer(est, X_proc)
-    #     shap_vals = expl.shap_values(X_proc)
-    # except Exception as e:
-    #     raise RuntimeError(f"SHAP explainer failed: {e}")
-
-    # ✅ FIX: SHAP must use XGBoost Booster, not XGBClassifier
     try:
-        if hasattr(est, "get_booster"):
-            booster = est.get_booster()
-        else:
-            raise RuntimeError("Estimator is not XGBoost-compatible")
-    
-        explainer = shap.TreeExplainer(booster)
-        shap_vals = explainer.shap_values(X_proc)
-    
+        try:
+            expl = shap.TreeExplainer(est)
+        except Exception:
+            expl = shap.Explainer(est, X_proc)
+        shap_vals = expl.shap_values(X_proc)
     except Exception as e:
         raise RuntimeError(f"SHAP explainer failed: {e}")
-
 
     if isinstance(shap_vals, list) and len(shap_vals) > 1:
         vals = _np.array(shap_vals[1])
