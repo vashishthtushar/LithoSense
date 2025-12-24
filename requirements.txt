@@ -1,17 +1,17 @@
 # Core
-streamlit
-scikit-learn
-pandas
-numpy
+streamlit==1.21.0
+scikit-learn==1.2.2
+pandas==2.0.3
+numpy==1.24.4
 joblib
 
 # Explainability & Visualization
-shap
+shap==0.41.0
 matplotlib
 seaborn
 
 # Model Handling
-xgboost
+xgboost==1.7.6
 lightgbm
 catboost
 
