@@ -1,5 +1,7 @@
 import streamlit as st
 
+st.set_page_config(page_title="LithoSense", layout="wide")
+
 # Import your app pages
 from _pages import home, single_patient, batch, explainability, fairness
 
@@ -10,7 +12,7 @@ from src.utils import load_artifacts
 # Main app
 # ------------------------------
 def main():
-    st.set_page_config(page_title="LithoSense", layout="wide")
+    # st.set_page_config(page_title="LithoSense", layout="wide")
 
     # ✅ Load artifacts once here
     artifacts = load_artifacts()
