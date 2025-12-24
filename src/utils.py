@@ -313,6 +313,8 @@ def compute_local_shap_plot(raw_pipeline, X_row_df, original_features=None, top_
         X_proc = X_row_df.copy()
         proc_feature_names = list(X_proc.columns)
 
+    assert X.dtypes.apply(lambda x: x.kind).eq("f").all(), "X contains non-float values"
+
     ### compute shap values
     # try:
     #     try:
