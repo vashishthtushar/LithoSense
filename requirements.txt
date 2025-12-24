@@ -1,12 +1,12 @@
 # Core
 streamlit
-scikit-learn==1.5.1
+scikit-learn
 pandas
 numpy
 joblib
 
 # Explainability & Visualization
-shap==0.46.0
+shap
 matplotlib
 seaborn
 
