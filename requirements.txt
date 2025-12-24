@@ -11,7 +11,7 @@ matplotlib
 seaborn
 
 # Model Handling
-xgboost<2.0
+xgboost
 lightgbm
 catboost
 
