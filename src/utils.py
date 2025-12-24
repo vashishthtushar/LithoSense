@@ -313,15 +313,28 @@ def compute_local_shap_plot(raw_pipeline, X_row_df, original_features=None, top_
         X_proc = X_row_df.copy()
         proc_feature_names = list(X_proc.columns)
 
-    # compute shap values
+    ### compute shap values
+    # try:
+    #     try:
+    #         expl = shap.TreeExplainer(est)
+    #     except Exception:
+    #         expl = shap.Explainer(est, X_proc)
+    #     shap_vals = expl.shap_values(X_proc)
+    # except Exception as e:
+    #     raise RuntimeError(f"SHAP explainer failed: {e}")
+    # ✅ FIX: SHAP must use XGBoost Booster, not XGBClassifier
     try:
-        try:
-            expl = shap.TreeExplainer(est)
-        except Exception:
-            expl = shap.Explainer(est, X_proc)
-        shap_vals = expl.shap_values(X_proc)
+        if hasattr(est, "get_booster"):
+            booster = est.get_booster()
+        else:
+            raise RuntimeError("Estimator is not XGBoost-compatible")
+    
+        explainer = shap.TreeExplainer(booster)
+        shap_vals = explainer.shap_values(X_proc)
+    
     except Exception as e:
         raise RuntimeError(f"SHAP explainer failed: {e}")
+
 
     if isinstance(shap_vals, list) and len(shap_vals) > 1:
         vals = np.array(shap_vals[1])
@@ -401,14 +414,28 @@ def get_local_shap_contributions(raw_pipeline, X_row_df, original_features=None,
         proc_feature_names = list(X_proc.columns)
 
     # compute shap values
+    # try:
+    #     try:
+    #         expl = shap.TreeExplainer(est)
+    #     except Exception:
+    #         expl = shap.Explainer(est, X_proc)
+    #     shap_vals = expl.shap_values(X_proc)
+    # except Exception as e:
+    #     raise RuntimeError(f"SHAP explainer failed: {e}")
+
+    # ✅ FIX: SHAP must use XGBoost Booster, not XGBClassifier
     try:
-        try:
-            expl = shap.TreeExplainer(est)
-        except Exception:
-            expl = shap.Explainer(est, X_proc)
-        shap_vals = expl.shap_values(X_proc)
+        if hasattr(est, "get_booster"):
+            booster = est.get_booster()
+        else:
+            raise RuntimeError("Estimator is not XGBoost-compatible")
+    
+        explainer = shap.TreeExplainer(booster)
+        shap_vals = explainer.shap_values(X_proc)
+    
     except Exception as e:
         raise RuntimeError(f"SHAP explainer failed: {e}")
+
 
     if isinstance(shap_vals, list) and len(shap_vals) > 1:
         vals = _np.array(shap_vals[1])
