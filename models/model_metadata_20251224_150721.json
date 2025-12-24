@@ -1,7 +1,7 @@
 {
-  "timestamp": "20250917_180446",
-  "calibrated_model_path": "models/xgb_calibrated_pipeline_20250917_180446.joblib",
-  "raw_model_path": "models/xgb_raw_pipeline_20250917_180446.joblib",
+  "timestamp": "20251224_150721",
+  "calibrated_model_path": "models/xgb_calibrated_pipeline_20251224_150721.joblib",
+  "raw_model_path": "models/xgb_raw_pipeline_20251224_150721.joblib",
   "features": [
     "Age",
     "Gender",
