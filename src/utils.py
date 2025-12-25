@@ -68,14 +68,36 @@ def load_artifacts(models_dir=MODELS_DIR):
             artifacts["cat_values"] = meta.get("cat_values", {})
 
             # 🔹 Load feature means if available
-            if os.path.exists(feature_means_path):
-                try:
-                    with open(feature_means_path, "r") as f:
-                        artifacts["feature_means"] = json.load(f)
-                except Exception:
+            # if os.path.exists(feature_means_path):
+            #     try:
+            #         with open(feature_means_path, "r") as f:
+            #             artifacts["feature_means"] = json.load(f)
+            #     except Exception:
+            #         artifacts["feature_means"] = {}
+            # else:
+            #     artifacts["feature_means"] = {}
+            def load_feature_means_as_float(path):
+                artifacts = {}
+                if os.path.exists(path):
+                    try:
+                        with open(path, "r") as f:
+                            data = json.load(f)
+                            # Convert all numerical values in the loaded data to float
+                            if isinstance(data, dict):
+                                artifacts["feature_means"] = {k: float(v) if isinstance(v, (int, float, str)) and v.replace('.', '', 1).isdigit() else v for k, v in data.items()}
+                            elif isinstance(data, list):
+                                artifacts["feature_means"] = [float(item) if isinstance(item, (int, float, str)) and item.replace('.', '', 1).isdigit() else item for item in data]
+                            else:
+                                artifacts["feature_means"] = float(data) if isinstance(data, (int, float, str)) and data.replace('.', '', 1).isdigit() else data
+                    except Exception:
+                        artifacts["feature_means"] = {}
+                else:
                     artifacts["feature_means"] = {}
-            else:
-                artifacts["feature_means"] = {}
+                return artifacts
+
+# Example usage:
+# artifacts = load_feature_means_as_float(feature_means_path)
+# print(artifacts)
 
             # load calibrated/raw pipeline paths if present in metadata
             calib = meta.get("calibrated_pipeline") or meta.get("calibrated_model_path") or meta.get("calibrated_model")
