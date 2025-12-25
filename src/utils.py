@@ -92,7 +92,7 @@ def load_artifacts(models_dir=MODELS_DIR):
             artifacts["feature_types"] = meta.get("feature_types", {})
             artifacts["cat_values"] = meta.get("cat_values", {})
 
-            🔹 Load feature means if available
+            #  Load feature means if available
             if os.path.exists(feature_means_path):
                 try:
                     # with open(feature_means_path, "r") as f:
