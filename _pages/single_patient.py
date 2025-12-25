@@ -1,7 +1,7 @@
 # pages/single_patient.py
 import streamlit as st
 import pandas as pd
-from src.utils import model_predict_proba, compute_local_shap_plot, get_local_shap_contributions, query_llm_summary, load_feature_means_as_float
+from src.utils import model_predict_proba, compute_local_shap_plot, get_local_shap_contributions, query_llm_summary
 import hashlib
 from textwrap import dedent
 
