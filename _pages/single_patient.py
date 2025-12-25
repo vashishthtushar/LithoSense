@@ -28,10 +28,23 @@ def app(artifacts):
     feature_names = artifacts.get("features", [])
     feature_means = artifacts.get("feature_means", {})
 
-    if not feature_names:
-        st.error("No feature names found in artifacts.")
-        return
+    # if not feature_names:
+    #     st.error("No feature names found in artifacts.")
+    #     return
 
+    # Initialize defaults only once
+    if "initialized_defaults" not in st.session_state:
+        for feature in feature_names:
+            try:
+                st.session_state[f"input_{feature}"] = float(
+                    feature_means.get(feature, 0.0)
+                )
+            except Exception:
+                st.session_state[f"input_{feature}"] = 0.0
+    
+        st.session_state["initialized_defaults"] = True
+
+    
     # Multi-column form
     with st.form("single_patient_form"):
         inputs = {}
@@ -47,7 +60,7 @@ def app(artifacts):
                     default_val = float(feature_means.get(feature, 0.0))  # ✅ use means
                     inputs[feature] = col.number_input(
                         feature,
-                        value=default_val,
+                        # value=default_val,
                         step=0.01,
                         format="%.4f",
                         key=f"input_{feature}"
