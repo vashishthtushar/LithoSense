@@ -34,6 +34,31 @@ def find_latest_metadata(models_dir=MODELS_DIR):
     files.sort(key=os.path.getmtime, reverse=True)
     return files[0]
 
+def _sanitize_feature_means(d: dict) -> dict:
+    """
+    Ensure all feature mean values are pure floats.
+    Handles cases like '[4.93E-1]', ['0.49'], '0.49'
+    """
+    clean = {}
+
+    for k, v in d.items():
+        try:
+            # unwrap list
+            if isinstance(v, list) and len(v) == 1:
+                v = v[0]
+
+            # strip brackets if string
+            if isinstance(v, str):
+                v = v.replace("[", "").replace("]", "").strip()
+
+            clean[k] = float(v)
+        except Exception:
+            # fallback: ignore bad value
+            continue
+
+    return clean
+
+
 def load_artifacts(models_dir=MODELS_DIR):
     """
     Load metadata JSON (latest) and pipelines if present.
@@ -67,33 +92,19 @@ def load_artifacts(models_dir=MODELS_DIR):
             artifacts["feature_types"] = meta.get("feature_types", {})
             artifacts["cat_values"] = meta.get("cat_values", {})
 
-            # 🔹 Load feature means if available
-            # if os.path.exists(feature_means_path):
-            #     try:
-            #         with open(feature_means_path, "r") as f:
-            #             artifacts["feature_means"] = json.load(f)
-            #     except Exception:
-            #         artifacts["feature_means"] = {}
-            # else:
-            #     artifacts["feature_means"] = {}
-def load_feature_means_as_float(path):
-    artifacts = {}
-    if os.path.exists(path):
-        try:
-            with open(path, "r") as f:
-                data = json.load(f)
-                # Convert all numerical values in the loaded data to float
-                if isinstance(data, dict):
-                    artifacts["feature_means"] = {k: float(v) if isinstance(v, (int, float, str)) and v.replace('.', '', 1).isdigit() else v for k, v in data.items()}
-                elif isinstance(data, list):
-                    artifacts["feature_means"] = [float(item) if isinstance(item, (int, float, str)) and item.replace('.', '', 1).isdigit() else item for item in data]
-                else:
-                    artifacts["feature_means"] = float(data) if isinstance(data, (int, float, str)) and data.replace('.', '', 1).isdigit() else data
-        except Exception:
-            artifacts["feature_means"] = {}
-    else:
-        artifacts["feature_means"] = {}
-    return artifacts
+            🔹 Load feature means if available
+            if os.path.exists(feature_means_path):
+                try:
+                    # with open(feature_means_path, "r") as f:
+                    #     artifacts["feature_means"] = json.load(f)
+                    with open(feature_means_path, "r") as f:
+                        raw_means = json.load(f)
+                        artifacts["feature_means"] = _sanitize_feature_means(raw_means)
+
+                except Exception:
+                    artifacts["feature_means"] = {}
+            else:
+                artifacts["feature_means"] = {}
 
 # Example usage:
 # artifacts = load_feature_means_as_float(feature_means_path)
