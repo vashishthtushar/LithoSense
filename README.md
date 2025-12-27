@@ -1,6 +1,6 @@
 # LithoSense — Clinical Gallstone Risk Screening (Interactive + Explainable)
 
-### Deployed Link - https://lithosense-6bjk38thknmq92cpxptwyc.streamlit.app/
+### Deployed Link -  https://lithosense-8heftpobxfzrovbte2nf5u.streamlit.app/
 
 **Author:** Tushar Vashishth
 **Status:** Prototype / Demo-ready (Streamlit) — includes prediction, explainability (SHAP), fairness checks, and LLM-based clinical summaries (Hugging Face / fallback).
@@ -173,7 +173,7 @@ HF_API_TOKEN = "hf_xxx_your_token_here"
 **Design**
 - LLM is used only to generate clinician-friendly summaries and insights from model output + SHAP top features.
 - The LLM helper is in `src/utils.py` (function: `query_llm_summary(...)`).
-- Implementation tries primary domain model (e.g., `Falconsai/medical_summarization`) and falls back to `facebook/bart-large-cnn` if access issues occur.
+- Implementation tries primary domain model meta-llama/Llama-3.2-1B-Instruct, and the full model with chat url is - https://router.huggingface.co/v1/chat/completions/meta-llama/Llama-3.2-1B-Instruct
 
 **Prompting**
 - The tool sends a short contextual prompt including:
@@ -203,7 +203,7 @@ The Explainability report produced by the app is intentionally **non-technical**
 ## Interactive clinical screening UI walkthrough
 - **Home**: Project description & instructions.
 - **Single Patient**: Input patient features, click *Run Prediction*, view risk card, view Local SHAP, then AI Summary (auto-generated or on-button depending on configuration).
-- **Batch CSV**: Upload a CSV with required columns, download results with risk column appended.
+- **Batch CSV**: Upload a CSV with required columns, download results with risk column appended, then AI Summary (auto-generated or on-button depending on configuration of that particularly patient with that columns idx.
 - **Explainability**: Full report, downloadable figures for clinician notes.
 - **Fairness**: Simple subgroup performance and representation checks.
 
@@ -242,7 +242,6 @@ Use standard classification metrics:
 ---
 
 ## Future work / extension ideas
-- Host a dedicated inference endpoint for a more powerful instruction-tuned LLM (Meta-LLaMA, Mistral) in a controlled environment.
 - Add user authentication & audit logs (for production clinical settings).
 - Fine-tune a domain-specific LLM (if allowed) on clinical summaries and model rationale.
 - Add model monitoring (drift detection) and more advanced fairness audits.
